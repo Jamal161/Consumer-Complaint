@@ -1,0 +1,145 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# Load the dataset
+file_path = "/kaggle/input/consumercomplaint/Consumer_Complaints.xlsx"
+df = pd.read_excel(file_path)
+
+# Clean column names
+df.columns = df.columns.str.strip()
+
+df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+# Display basic information
+print("Dataset Info:")
+print(df.info())
+
+# Display first few rows
+print("\nFirst 5 rows:")
+print(df.head())
+
+# Handle missing values in numeric columns
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+
+# Summary statistics
+print("\nSummary Statistics After Fix:")
+print(df.describe(include='all'))
+
+print("\nMissing Values After Fix:")
+print(df.isnull().sum())
+
+# Bar plot for top 10 most common complaint categories
+if 'Product' in df.columns:
+    plt.figure(figsize=(12, 6))
+    df['Product'].value_counts().head(10).plot(kind='bar', color='skyblue')
+    plt.title("Top 10 Most Common Complaint Categories")
+    plt.xlabel("Product")
+    plt.ylabel("Count")
+    plt.xticks(rotation=45)
+    plt.show()
+
+# Pie chart for complaint distribution by company
+if 'Company' in df.columns:
+    plt.figure(figsize=(8, 8))
+    df['Company'].value_counts().head(5).plot(kind='pie', autopct='%1.1f%%', startangle=140, cmap='coolwarm')
+    plt.title("Complaint Distribution by Company (Top 5)")
+    plt.ylabel('')
+    plt.show()
+
+# Histogram for complaint response times (if applicable)
+required_columns = ['Date received', 'Date sent to company']
+existing_columns = [col for col in required_columns if col in df.columns]
+
+if len(existing_columns) == 2:
+    df['Date received'] = pd.to_datetime(df['Date received'], errors='coerce')
+    df['Date sent to company'] = pd.to_datetime(df['Date sent to company'], errors='coerce')
+    df.dropna(subset=['Date received', 'Date sent to company'], inplace=True)
+
+    df['Response Time (Days)'] = (df['Date sent to company'] - df['Date received']).dt.days
+    
+    # Replace invalid response times
+    df['Response Time (Days)'] = df['Response Time (Days)'].replace([np.inf, -np.inf], np.nan)
+    df['Response Time (Days)'].fillna(df['Response Time (Days)'].median(), inplace=True)
+    
+    plt.figure(figsize=(10, 5))
+    sns.histplot(df['Response Time (Days)'], bins=20, kde=True, color='purple')
+    plt.title("Distribution of Complaint Response Time")
+    plt.xlabel("Response Time (Days)")
+    plt.ylabel("Frequency")
+    plt.show()
+else:
+    print("Required date columns are missing from the dataset.")
+
+# Line graph for complaint trends over time
+if 'Date received' in df.columns:
+    df['Date received'] = pd.to_datetime(df['Date received'], errors='coerce')
+    df['YearMonth'] = df['Date received'].dt.to_period('M')
+    plt.figure(figsize=(12, 6))
+    df['YearMonth'].value_counts().sort_index().plot(kind='line', marker='o', color='green')
+    plt.title("Complaint Trends Over Time")
+    plt.xlabel("Year-Month")
+    plt.ylabel("Number of Complaints")
+    plt.xticks(rotation=45)
+    plt.show()
+
+# Box plot for response time distribution
+if 'Response Time (Days)' in df.columns:
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(y=df['Response Time (Days)'], color='orange')
+    plt.title("Box Plot of Complaint Response Time")
+    plt.ylabel("Response Time (Days)")
+    plt.show()
+
+print("Analysis and visualization completed.")
+
+
+
+import matplotlib.pyplot as plt
+
+# Ensure there are no NaN values in the 'Company public response' column
+df['Company public response'] = df['Company public response'].fillna('Unknown')
+
+# Pie chart for complaint distribution by company public response
+if 'Company public response' in df.columns:
+    top_responses = df['Company public response'].value_counts().head(5)  # Top 5 responses
+    
+    # If there are enough data points, plot the pie chart
+    if top_responses.sum() > 0:
+        plt.figure(figsize=(8, 8))
+        top_responses.plot(kind='pie', autopct='%1.1f%%', startangle=140, cmap='coolwarm')
+        plt.title("Complaint Distribution by Company Public Response (Top 5)")
+        plt.ylabel('')  # Remove label for readability
+        plt.show()
+    else:
+        print("Not enough data for company public responses.")
+else:
+    print("'Company public response' column is missing from the dataset.")
+
+
+import scipy.cluster.hierarchy as sch
+import matplotlib.pyplot as plt
+
+# Extract numeric columns for clustering
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+X = df[numeric_cols].dropna()  # Ensure no NaN values
+
+# Perform hierarchical clustering
+Z = sch.linkage(X, method='ward')
+
+# Plot the dendrogram
+plt.figure(figsize=(10, 7))
+sch.dendrogram(Z)
+plt.title("Hierarchical Clustering Dendrogram")
+plt.xlabel("Samples")
+plt.ylabel("Distance")
+plt.show()
+
+import plotly.express as px
+
+# Example: Create a tree map with 'Product' and 'State' as hierarchy
+fig = px.treemap(df, path=['Product', 'State'], values='Complaint ID', color='Complaint ID', hover_data=['Product', 'State'])
+fig.update_layout(title="TreeMap: Complaint Distribution by Product and State")
+fig.show()
